@@ -2,6 +2,7 @@ install.packages("rgeos")
 library(rgeos);library(raster);library(sp);library(rgdal);library(sf)
 setwd("C:/Users/conse/Desktop/Desktop/mel/Bioecon")
 setwd("C:/Users/mel/Desktop/Bioecon/NatureVsRenewables/data")
+setwd("C:/Users/mel/NatureVsRenewables/data")
 
 
 #Read in indonesia maps 
@@ -95,13 +96,18 @@ for (i in seq_len(nrow(aggregateMammals))){
 # Read in each layer.. 
 mammalNames = dir(getwd(), "*.shp")
 for (mammalNames in mammalNames) {
-  assign(mammalNames, read(mammalNames))
+  assign(mammalNames, readOGR(mammalNames))
 }
 
+# Method 2: 
+setwd("C:/Users/mel/NatureVsRenewables/data/mammals")
+mammalNames = list.files(pattern= '*.shp')
+result = data.frame(names = mammalNames, rows = c(NA))
+
 # Convert each layer to a raster....? 
-for (i in 283) {
-  
-  
+for (i in seq_along(mammalNames)) {
+mammal = readOGR(dsn = ".", layer = tools::file_path_sans_ext(mammalNames[i]))  
+result$rows[i] = nrow(mammal@data)
 }
 
 #testing change
