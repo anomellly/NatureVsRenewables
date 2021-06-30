@@ -13,6 +13,9 @@ extent(indonesia)
 indoProj = spTransform(indonesia, crs(windIndo))
 plot(indoProj)
 extent(indoProj)
+# Write out 
+writeOGR(indoProj, layer = 'indonesiaMollweideShp', driver = "ESRI Shapefile", dsn = getwd())
+
 
 # Clip wind DPI map to indonesia only
 #windIndo = mask(wind,indoProj)
@@ -27,19 +30,20 @@ indoRaster = rasterize(indoProj, r0, field = "val", background = 0)
 extent(indoRaster) = extent(windIndo)
 writeRaster(indoRaster,"indoMollweideProj.tif")
 
-# Read in Indo map
-indoRaster1 = raster("indoMollweideProj.tif")
-plot(indoRaster1)
-
 # Read in Wind DPI maps
 #wind = raster("Wind_DPI.tif")
 crs(wind)
 plot(wind)
 
+############################## real code begins here ################
+# Read in Indo map
+indoRaster = raster("indoMollweideProj.tif")
+plot(indoRaster)
 
 # Save Wind maps in Indo
 #writeRaster(windIndo, "wind_DPI_Indo.tif")
 windIndo = raster("wind_DPI_Indo.tif")
+plot(windIndo)
 # Read CSP 
 #csp = raster("CSP_DPI.tif")
 #cspIndo = mask(csp, indoProj)
@@ -52,27 +56,13 @@ cspIndo = raster("csp_DPI_Indo.tif")
 #writeRaster(pvIndo, "pv_DPI_Indo.tif")
 pvIndo = raster("pv_DPI_Indo.tif")
 
-# Read KBA, mammals 
-#kba = readOGR(dsn=getwd(), layer = "KBAsIndonesia")
-mammals = readOGR(dsn=getwd(), layer = "mammalIndo")
-
-crs(kba)
-crs(mammals)
-
-# Project to Mollweide projection
-kbaProj = spTransform(kba, crs(windIndo))
-mammalsProj = spTransform(mammals, crs(windIndo))
-
-#to check if the raster maps are accurate 
-plot(indoProj)
-acerodon = mammalsProj[mammalsProj$binomial == "Acerodon celebensis",]
-humilis = mammalsProj[mammalsProj$binomial == "Acerodon humilis",]
-plot(mammalsProj[mammalsProj$binomial == "Acerodon celebensis"], add=T, col="red")
-plot(acerodon, add=T, col="red") 
-plot(humilis, add=T, col="green")
-
 #####################
 ######## KBA ########
+# Read KBA 
+kba = readOGR(dsn=getwd(), layer = "KBAsIndonesia")
+# Project to Mollweide projection
+kbaProj = spTransform(kba, crs(windIndo))
+
 # KBA - Convert polygons to rasters
 # set resolution similar to DPI map resolutions
 #r = raster(as(kbaProj, "Spatial"),ncol=36000,nrow=15000)
@@ -90,30 +80,49 @@ plot(kbaProj, add=T, col="red")
 plot(kbaProj, main = "kbaProj")
 plot(kbaRaster, main="kbaRaster", axes=F, bty="n")
 
-## Mammals## 
-# Mammals - Convert to raster 
-r1 = raster(as(mammalsProj, "Spatial"), ncol=36000,nrow=15000)
-extent(r1) = extent(mammalsProj)
-mammalsProj$val = rep(1, nrow(mammalsProj))
-mammalsRaster = rasterize(mammalsProj, r1, field = "val", background = 0)
-extent(mammalsRaster) = extent(indoProj)
-writeRaster(mammalsRaster,"mammalsMollweideProj.tif")
+#####################
+###### Mammals ######
 
+# Read mammals
+mammalShp = readOGR(dsn=getwd(), layer = "mammalIndo")
+
+# Project to mollweide 
+mammalsProj = spTransform(mammalShp, crs(indoRaster))
 plot(indoProj)
-plot(mammalsRaster)
-plot(mammalsProj, add=T, col="red")
+plot(mammalsProj, add=T, col="green")
+plot(mammalsProj)
 
-
-# Combine rows with same species together (because each there are duplicate rows for the same species on different islands)
+# Combine rows with same species together 
 aggregateMammals = aggregate(mammalsProj, "binomial")
-plot(indoProj, main="aggregated mammals")
-plot(aggregateMammals, add=T,col="green")
+plot(indoRaster, main="aggregated mammals")
+plot(aggregateMammals, add=T,col="blue")
+plot(aggregateMammals)
 
+# Subset to just Indonesian islands
+library(rgeos)
+newMammalIndo2 = gIntersection(aggregateMammals, indoProj) #gIntersection gives me a SpatialPolygon, but i need a SPDF..
+#newMammalIndo1 = st_intersection(aggregateMammals, indoProj)
+#coerce into SPDF so that we can writeOGR
+newMammalIndo1 = as(newMammalIndo, "SpatialPolygonsDataFrame")
+plot(newMammalIndo1)
 
-# Extracting each mammal species in mammal 
-for (i in seq_len(nrow(aggregateMammals))){
+#try use raster::intersect 
+newMammalIndo3 = raster::intersect(aggregateMammals, indoProj)
+plot(indoProj)
+plot(newMammalIndo3[newMammalIndo3$binomial=="Acerodon celebensis",], add=T, col="green") #woo it overlaps nicely!! 
+
+# Test writing out 
+species = paste0("~/mammals_", 1)
+setwd("C:/Users/mel/NatureVsRenewables/data/mammals3")
+writeOGR(newMammalIndo3[1,], layer = species, driver = "ESRI Shapefile", dsn = getwd())
+mammalTest1 = readOGR(dsn=getwd(), layer="~_mammals_1")
+plot(indoProj)
+plot(mammalTest1, add=T, col="green") #hell ye its correct
+
+# Extracting each mammal species in mammalShp
+for (i in seq_len(nrow(newMammalIndo3))){
   species = paste0("~/mammals_", i)
-  writeOGR(aggregateMammals[i,], layer = species, driver = "ESRI Shapefile", dsn = getwd())
+  writeOGR(newMammalIndo3[i,], layer = species, driver = "ESRI Shapefile", dsn = getwd())
 }
 
 # Read in each layer.. 
@@ -122,7 +131,7 @@ for (mammalNames in mammalNames) {
   assign(mammalNames, readOGR(mammalNames))
 }
 
-# to check if raster maps are the same as shapefile maps
+# to check if shp maps are accurate
 mammal1 = readOGR(dsn= getwd(), layer = "~_mammals_1")
 plot(indoProj, main="mammal 1-2 shapefiles")
 plot(mammal1, add=T, col = "red")
@@ -130,8 +139,17 @@ plot(mammal1, add=T, col = "red")
 mammal2 = readOGR(dsn = getwd(), layer = "~_mammals_2")
 plot(mammal2, add=T, col = "green")
 
-# Method 2: 
-setwd("C:/Users/mel/NatureVsRenewables/data/mammals")
+#to check against original shp maps  
+plot(indoProj)
+acerodon = mammalsProj[mammalsProj$binomial == "Acerodon celebensis",]
+humilis = mammalsProj[mammalsProj$binomial == "Acerodon humilis",]
+plot(mammalsProj[mammalsProj$binomial == "Acerodon celebensis",], add=T, col="red")
+plot(acerodon, add=T, col="red") 
+plot(humilis, add=T, col="green")
+#yeee it correct
+
+# Step 2: 
+setwd("C:/Users/mel/NatureVsRenewables/data/mammals4")
 mammalList = list.files(pattern= '*.shp', full.names = FALSE)
 #result = data.frame(names = mammalNames, rows = c(NA))
 
@@ -139,11 +157,11 @@ install.packages("stringr")
 library(stringr)
 
 # Convert each layer to a raster....? 
-setwd("C:/Users/mel/NatureVsRenewables/data/mammals2") #test folder with 2 maps only
+setwd("C:/Users/mel/NatureVsRenewables/data/mammals4") #test folder with 2 maps only
 for (i in seq_along(mammalList)) {
 mammal = readOGR(dsn = ".", layer = tools::file_path_sans_ext(mammalList[i]))  
 
-r2 = raster(indoRaster1) # i think there might be a problem here
+r2 = raster(indoRaster) # i think there might be a problem here
 #r2.1 = raster(as(mammal, "Spatial"), ncol=36000,nrow=15000)
 #r2 = raster(as(mammal, "Spatial"), res = res(indoRaster1), extent = extent(indoRaster1), crs = crs(indoRaster1))
 
@@ -168,7 +186,8 @@ indonesia = readOGR(dsn=getwd(), layer ="indonesia" )
 setwd("C:/Users/mel/NatureVsRenewables/data/")
 mammal1Raster = raster("mammal_0001.tif")
 mammal2Raster = raster("mammal_0002.tif")
-plot(indoRaster1)
+extent(mammal1Raster) = extent(indoRaster)
+plot(indoRaster)
 plot(mammal1Raster, add=T)
 plot(mammal2Raster, add=T, col="blue")
 
