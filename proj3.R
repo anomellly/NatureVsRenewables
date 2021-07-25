@@ -1,51 +1,25 @@
 library(rgeos);library(raster);library(sp);library(rgdal);library(sf)
+library(velox)
 
 # Set wd
-setwd("C:/Users/mel/Desktop/Bioecon/NatureVsRenewables/help")
+#setwd("C:/Users/mel/Desktop/Bioecon/NatureVsRenewables/help")
 setwd("C:/Users/mel/NatureVsRenewables/data")
-
-#######
-# DPI # 
-
-# Read in Wind DPI (Development Potential Indices) maps 
-#wind = raster("Wind_DPI.tif")
-
-# Clip wind DPI map to indonesia only
-#windIndo = mask(wind,indoProj)
-
-# Save Wind maps in Indo
-#writeRaster(windIndo, "wind_DPI_Indo.tif")
-
-# Read in Wind DPI maps clipped to Indonesia 
-windIndo = raster("wind_DPI_Indo.tif")
-
-# Read CSP 
-#csp = raster("CSP_DPI.tif")
-#cspIndo = mask(csp, indoProj)
-#writeRaster(cspIndo, "csp_DPI_Indo.tif")
-cspIndo = raster("csp_DPI_Indo.tif")
-
-# Read PV 
-#pv = raster("PV_DPI.tif")
-#pvIndo = mask(pv, indoProj)
-#writeRaster(pvIndo, "pv_DPI_Indo.tif")
-pvIndo = raster("pv_DPI_Indo.tif")
 
 #############
 # Indonesia #
 
 # Read in Indo Shp map 
-indoProj = readOGR(dsn=getwd(), layer = "indonesia")
+indo = readOGR(dsn=getwd(), layer = "indonesia")
 
 # Convert to raster
-r <- raster(as(indoProj, "Spatial"),ncols = 400, nrows = 400)
-indoProj$val1 = rep(1, nrow(indoProj))
+r <- raster(as(indo, "Spatial"),ncols = 400, nrows = 400)
+indo$val1 = rep(1, nrow(indo))
 #set background as NA to remove cells in the ocean (saves time)
-indoRaster <- rasterize(indoProj, r, field = "val1", background = NA)
+indoRaster <- rasterize(indo, r, field = "val1", background = NA)
 plot(indoRaster)
 
 # Converting raster to polygons 
-# Placeholer for all species information to be stores
+# Placeholer for all species information to be stored
 indoGrid = rasterToPolygons(x=indoRaster, fun=NULL, n=4, na.rm=T, digits = 12, dissolve = F)
 
 plot(indoGrid)
@@ -125,9 +99,56 @@ windExtr <- wind2$extract(indoGrid, fun=mean)
 output2 = data.frame(output1)
 output2$windDPI = windExtr
 
+
 # Check if extraction has worked correctly 
 #idg wats goin on
-indoGrid$Tupaia.ferruginea = output2$Tupaia.ferruginea
+indoGrid1 = indoGrid
+indoGrid1$Tupaia.ferruginea = output2$Tupaia.ferruginea #assign mammal A as a layer in indoGrid
 
-indoGridTest = indoGrid[!is.na(indoGrid$Tupaia.ferruginea),]
-plot(indoGridTest)
+indoGridTest = indoGrid1[!is.na(indoGrid$Tupaia.ferruginea),]
+
+indoGrid1$Nycticebus.javanicus = output2$Nycticebus.javanicus
+
+indoGridTest = indoGrid1[!is.na(indoGrid$Nycticebus.javanicus),]
+
+par(mfrow=c(1,2))
+plot(indoGridTest, lwd=0.01, col="blue")
+plot(indoGrid1, lwd = 0.001, col = indoGrid1$Tupaia.ferruginea) #colour by factor
+plot(indoGrid1, lwd = 0.001, col = c("blue")[indoGrid1$Tupaia.ferruginea], add=T)
+#y is nothing coming up.... 
+
+#my attempt idk sia
+dev.off()
+
+par(mfrow=c(1,2))
+plot(indoGrid, lwd=0.01)
+plot(output2$Tupaia.ferruginea, col="blue")
+
+
+##########
+# CSP DPI#
+csp = raster("C:\\Users\\mel\\Desktop\\Bioecon\\DPI\\CSP_DPI.tif")
+
+# Project to mollewoide 
+indoProj = spTransform(indo, crs(csp))
+crs(csp)
+crs(indoProj)
+
+csp2 = velox(csp)
+csp2$crop(extent(indoProj))
+rm(csp)
+
+cspExtr <- csp2$extract(indoGrid, fun=mean)
+indoGrid1$cspDPI <- cspExtr
+head(output2,150)
+
+
+r = raster(as(indoGrid, "Spatial"), ncols=400, nrows=400)
+indoGrid1$cspDPI = output2$cspDPI
+cspRaster = rasterize(indoGrid1, r, field="cspDPI", background=NA)
+
+plot(indoRaster)
+plot(cspRaster, add=T, col="blue")
+
+plot(cspRaster)
+
