@@ -19,11 +19,26 @@ indoRaster <- rasterize(indo, r, field = "val1", background = NA)
 plot(indoRaster)
 
 # Converting raster to polygons 
-# Placeholer for all species information to be stored
+# Placeholder for all species information to be stored
 indoGrid = rasterToPolygons(x=indoRaster, fun=NULL, n=4, na.rm=T, digits = 12, dissolve = F)
 
 plot(indoGrid)
 head(indoGrid)
+
+##############
+## DPI maps ##
+
+# Read CSP 
+#csp = raster("CSP_DPI.tif")
+#cspIndo = mask(csp, indoProj)
+#writeRaster(cspIndo, "csp_DPI_Indo.tif")
+cspIndo = raster("csp_DPI_Indo.tif")
+
+# Read PV 
+#pv = raster("PV_DPI.tif")
+#pvIndo = mask(pv, indoProj)
+#writeRaster(pvIndo, "pv_DPI_Indo.tif")
+pvIndo = raster("pv_DPI_Indo.tif")
 
 ############
 ## Mammals## 
@@ -32,7 +47,7 @@ head(indoGrid)
 mammalShp = readOGR(dsn=getwd(), layer = "mammalIndo")
 
 # Project to Mollweide projection
-mammalsProj = spTransform(mammalShp, crs(windIndo))
+mammalsProj = spTransform(mammalShp, crs(cspIndo))
 
 # Combine rows with same species together (because each there are duplicate rows for the same species on different islands)
 aggregateMammals = aggregate(mammalsProj, c("binomial", "category")) 
@@ -45,6 +60,7 @@ library(devtools)
 #install_github("hunzikp/velox")
 library(velox)
 #cant install velox as it only supports R < ver 4 
+#but somehow i managed to do it 
 
 # Loop through all species and puts them into a list list_sps
 list_sps = list()
@@ -130,11 +146,12 @@ plot(output2$Tupaia.ferruginea, col="blue")
 csp = raster("C:\\Users\\mel\\Desktop\\Bioecon\\DPI\\CSP_DPI.tif")
 
 # Project to mollewoide 
-indoProj = spTransform(indo, crs(csp))
-crs(csp)
+indoProj = spTransform(indo, crs(cspIndo))
+crs(cspIndo)
 crs(indoProj)
 
-csp2 = velox(csp)
+csp2 = velox(cspIndo)
+#clip map with velox  
 csp2$crop(extent(indoProj))
 rm(csp)
 
