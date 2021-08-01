@@ -62,8 +62,9 @@ library(velox)
 #cant install velox as it only supports R < ver 4 
 #but somehow i managed to do it 
 
-# Loop through all species and puts them into a list list_sps
-list_sps = list()
+# Loop through all species and puts them into a list 
+# Putting all species rasters in a list makes extract work faster 
+list_sps = list() #create list 
 
 for (i in 1:nrow(aggregateMammals)){
   sps_i = aggregateMammals[i,]
@@ -74,21 +75,21 @@ for (i in 1:nrow(aggregateMammals)){
   
   #rasters converted to velox raster objects 
   list_sps[[i]] = velox(sps_i_ras)
-  print(i)
+  print(i) #check to see how any species are done 
   
 }
 
 # Convert list_sps into velox object, for extraction to work 
-list_sps2 = velox(list_sps)
+list_sps2 = velox(list_sps) #but its a null object.... 
 
-start_time = Sys.time() #to calculate the time 
+start_time = Sys.time() #to calculate the time taken for extraction
 output1 = list_sps2$extract(indoGrid, fun=mean) 
 #why is output1 a matrix 
 end_time = Sys.time()
 end_time-start_time
 #took 1.5 minutes to do 283 maps
 
-# Name the columns 
+# Name the columns (each column is a species)
 colnames(output1) = aggregateMammals$binomial
 #output1 isnt a matrix anymore...? 
 head(output1, 150)
@@ -150,7 +151,7 @@ indoProj = spTransform(indo, crs(cspIndo))
 crs(cspIndo)
 crs(indoProj)
 
-csp2 = velox(cspIndo)
+csp2 = velox(csp)
 #clip map with velox  
 csp2$crop(extent(indoProj))
 rm(csp)
@@ -159,7 +160,7 @@ cspExtr <- csp2$extract(indoGrid, fun=mean)
 indoGrid1$cspDPI <- cspExtr
 head(output2,150)
 
-
+output2 = data.frame(output1)
 r = raster(as(indoGrid, "Spatial"), ncols=400, nrows=400)
 indoGrid1$cspDPI = output2$cspDPI
 cspRaster = rasterize(indoGrid1, r, field="cspDPI", background=NA)
